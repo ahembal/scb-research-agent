@@ -137,3 +137,31 @@ Rules:
 - Keep the answer to 2-4 sentences.
 
 Answer:"""
+
+
+def keyword_extraction_prompt(question: str) -> str:
+    """
+    Ask Claude to extract short SCB-friendly search keywords from a
+    natural language question.
+
+    The SCB search API works best with 1-3 short keywords, not full sentences.
+    Returns a prompt expecting a single line of space-separated keywords.
+    """
+    return f"""You are helping search a statistical database.
+
+A user asked:
+"{question}"
+
+Extract 2-4 short search keywords from this question that would find relevant
+statistical tables. Focus on the topic, not the question structure.
+
+Rules:
+- Reply with ONLY the keywords on a single line, space-separated
+- No punctuation, no explanation
+- Use English keywords
+- Examples:
+    "What was the population of Sweden in 2024?" → population Sweden
+    "How many females lived in Stockholm in 2023?" → population region sex
+    "What is the average age in Gothenburg?" → average age region
+
+Keywords:"""

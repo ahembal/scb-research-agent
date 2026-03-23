@@ -33,6 +33,7 @@ from research_agent.models import (
     DimensionSuggestion,
 )
 from research_agent.prompts import (
+    keyword_extraction_prompt,
     table_ranking_prompt,
     dimension_suggestion_prompt,
     answer_generation_prompt,
@@ -91,7 +92,8 @@ async def start_session(question: str) -> SessionState:
     Step 1 of the assisted pipeline.
 
     - Creates a new session for the question
-    - Searches SCB for relevant tables
+    - Asks Claude to extract short search keywords from the question
+    - Searches SCB using those keywords
     - Asks Claude to rank candidates and explain relevance
     - Saves ranked candidates to session state
     - Returns state to the caller (main.py exposes this to the user)
@@ -100,8 +102,13 @@ async def start_session(question: str) -> SessionState:
     """
     state = create_session(question)
 
-    # Search SCB for candidate tables
-    result = await search_tables(question)
+    # Extract short keywords from the question for SCB search
+    # SCB search works best with 1-4 keywords, not full sentences
+    keywords = _call_claude(keyword_extraction_prompt(question))
+    print(f"[agent] extracted keywords: {keywords}")
+
+    # Search SCB using extracted keywords
+    result = await search_tables(keywords)
     tables = result.get("tables", [])
 
     if not tables:
@@ -118,8 +125,7 @@ async def start_session(question: str) -> SessionState:
     ranked_raw = _call_claude(prompt)
     ranked = _parse_json_response(ranked_raw, "table ranking")
 
-    # Build TableCandidate objects, preserving Claude's ranked order
-    ranked_ids = {item["id"]: item.get("reason", "") for item in ranked}
+    # Build TableCandidate objects preserving Claude's ranked order
     state.table_candidates = [
         TableCandidate(
             id=item["id"],
@@ -198,7 +204,7 @@ async def select_table(session_id: str, table_id: str) -> SessionState:
         for d in parsed
     }
 
-    # Build DimensionSuggestion objects, filtering out any invalid codes
+    # Build DimensionSuggestion objects filtering out any invalid codes
     state.suggestions = []
     for item in suggestions:
         dim_id = item.get("dimension_id")
