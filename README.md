@@ -69,6 +69,9 @@ open http://127.0.0.1:8000/docs
 
 ## Requirements
 
+See [Prerequisites](docs/06-prerequisites.md) for setup instructions.
+
+
 - Python 3.10+
 - An [Anthropic API key](https://console.anthropic.com/)
 
