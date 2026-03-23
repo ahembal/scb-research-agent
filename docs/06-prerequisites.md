@@ -42,3 +42,13 @@ The agent makes outbound requests to two external APIs:
 - `https://api.anthropic.com` — Anthropic Claude
 
 Both must be reachable from wherever you run the service.
+
+## Note on billing
+
+A new Anthropic account requires credits before the API works.
+Free tier access is not available for the API.
+
+To add credits:
+1. Go to https://console.anthropic.com/settings/billing
+2. Click **Add credits**
+3. $5 is more than enough for a full workshop session with this project
