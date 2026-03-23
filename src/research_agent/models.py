@@ -1,0 +1,79 @@
+# src/research_agent/models.py
+"""
+Internal data models for the agent pipeline.
+
+These dataclasses represent the agent's internal state at each step.
+They are not exposed directly via the API — see schema.py for HTTP models.
+"""
+from dataclasses import dataclass, field
+from datetime import datetime
+
+
+@dataclass
+class DimensionValue:
+    """A single selectable value within a table dimension."""
+    code: str
+    label: str
+
+
+@dataclass
+class Dimension:
+    """
+    A variable/dimension in an SCB table.
+    Examples: Region, Sex, Year, Age.
+    """
+    id: str
+    label: str
+    values: list[DimensionValue] = field(default_factory=list)
+
+
+@dataclass
+class TableCandidate:
+    """
+    A candidate SCB table returned from a search, with a reason
+    explaining why it is relevant to the user's question.
+    """
+    id: str
+    label: str
+    reason: str = ""
+
+
+@dataclass
+class DimensionSuggestion:
+    """
+    Claude's suggested values for one dimension, with a reason
+    explaining why those values match the user's question.
+    The user can accept this suggestion or override it.
+    """
+    dimension_id: str
+    dimension_label: str
+    suggested_codes: list[str] = field(default_factory=list)
+    suggested_labels: list[str] = field(default_factory=list)
+    reason: str = ""
+
+
+@dataclass
+class SessionState:
+    """
+    Full state of one assisted agent session.
+
+    Created at /session/start and updated at each subsequent step.
+    Stored in the in-memory session store between HTTP requests.
+    """
+    session_id: str
+    question: str
+    created_at: datetime = field(default_factory=datetime.utcnow)
+
+    # Set after step 1 (table search)
+    table_candidates: list[TableCandidate] = field(default_factory=list)
+
+    # Set after step 2 (table selection)
+    selected_table: TableCandidate | None = None
+    dimensions: list[Dimension] = field(default_factory=list)
+    suggestions: list[DimensionSuggestion] = field(default_factory=list)
+
+    # Set after step 3 (confirm query)
+    confirmed_selection: dict[str, list[str]] = field(default_factory=dict)
+    answer: str = ""
+    raw_values: list = field(default_factory=list)
+    selection_labels: dict = field(default_factory=dict)

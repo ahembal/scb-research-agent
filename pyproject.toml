@@ -1,0 +1,21 @@
+# pyproject.toml
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "public-data-research-agent"
+version = "0.1.0"
+description = "Research agent that answers questions using Swedish public data"
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi",
+    "uvicorn",
+    "httpx",
+    "pydantic",
+    "python-dotenv",
+    "anthropic"
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
