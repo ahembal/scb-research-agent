@@ -1,20 +1,16 @@
 # Dockerfile
-# Multi-stage is overkill for this project — single stage keeps it simple
-# and easy to understand for workshop participants.
-
 FROM python:3.10-slim
 
 # Set working directory
 WORKDIR /app
 
-# Install dependencies first (separate layer for better caching)
-# If only source code changes, this layer is reused from cache
+# Copy source first so pip install can find the src/ directory
 COPY pyproject.toml .
+COPY src ./src
+
+# Install dependencies
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir .
-
-# Copy application source
-COPY src ./src
 
 # Set Python path so the app can find its modules
 ENV PYTHONPATH=/app/src
