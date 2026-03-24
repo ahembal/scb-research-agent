@@ -1,0 +1,23 @@
+# deploy/kind/manifests/kustomization.yaml
+# Kind-specific overlay.
+# Patches the base service to expose the app on NodePort 30080,
+# which maps to localhost:8080 via kind-config.yaml port mapping.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../base
+
+patches:
+  - patch: |-
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: research-agent
+      spec:
+        type: NodePort
+        ports:
+          - protocol: TCP
+            port: 80
+            targetPort: 8000
+            nodePort: 30080

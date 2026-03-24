@@ -1,0 +1,11 @@
+# k8s/base/kustomization.yaml
+# Kustomize base — lists all base manifests.
+# Do not add environment-specific settings here.
+# Use overlays/kind or overlays/cloud instead.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - configmap.yaml
+  - deployment.yaml
+  - service.yaml

@@ -1,0 +1,13 @@
+# deploy/kind/kind-config.yaml
+# Kind cluster configuration for the research agent workshop.
+# Defines one control-plane node with a port mapping so the app
+# is reachable on localhost:8080 from your laptop.
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: research-agent
+nodes:
+  - role: control-plane
+    extraPortMappings:
+      - containerPort: 30080
+        hostPort: 8080
+        protocol: TCP

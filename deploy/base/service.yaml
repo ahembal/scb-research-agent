@@ -1,0 +1,16 @@
+# k8s/base/service.yaml
+# ClusterIP service — reachable inside the cluster only.
+# The Kind overlay adds a NodePort to expose it on the host machine.
+apiVersion: v1
+kind: Service
+metadata:
+  name: research-agent
+  labels:
+    app: research-agent
+spec:
+  selector:
+    app: research-agent
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8000

@@ -1,0 +1,61 @@
+# k8s/base/deployment.yaml
+# Deploys the research agent as a single replica pod.
+# For the workshop one replica is sufficient.
+# Scale up by increasing replicas for production use.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: research-agent
+  labels:
+    app: research-agent
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: research-agent
+  template:
+    metadata:
+      labels:
+        app: research-agent
+    spec:
+      containers:
+        - name: research-agent
+          image: research-agent:latest
+          # Never pull from registry — use the locally loaded image
+          # This is overridden in the cloud overlay to Always
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 8000
+          # Load non-secret config from ConfigMap
+          envFrom:
+            - configMapRef:
+                name: research-agent-config
+          # Load secret config from Secret
+          env:
+            - name: ANTHROPIC_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: research-agent-secret
+                  key: ANTHROPIC_API_KEY
+          # Resource limits prevent the container from starving other pods
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          # Liveness probe — restart pod if app stops responding
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          # Readiness probe — only send traffic when app is ready
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 10

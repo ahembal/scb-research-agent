@@ -1,0 +1,21 @@
+# Based on SCB table: Population by age and sex. Year 1860 - 2024
+What was the population of Sweden in 2024?
+What was the population of females in Sweden in 2024?
+What was the population of males in Sweden in 2000?
+How has the population of Sweden changed between 2014 and 2024?
+
+# Based on SCB table: Population per region by age and sex. Year 2010 - 2024
+What was the population of Stockholm county in 2024?
+What was the population of Västra Götaland county in 2024?
+How many females lived in Stockholm county in 2024?
+How many males lived in Skåne county in 2024?
+
+# Based on SCB table: Population per month by region, age and sex. Year 2000M01 - 2024M12
+What was the population of Sweden in December 2024?
+What was the population of Stockholm county in June 2024?
+How many females lived in Sweden in December 2024?
+
+# Based on SCB table: Average age of the population by region and sex. Year 1998 - 2025
+What was the average age of the population in Sweden in 2025?
+What was the average age of females in Sweden in 2025?
+What was the average age of males in Stockholm county in 2025?

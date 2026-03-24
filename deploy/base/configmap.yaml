@@ -1,0 +1,12 @@
+# k8s/base/configmap.yaml
+# Non-sensitive configuration for the research agent.
+# Secrets (API keys) are managed separately in a Kubernetes Secret.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: research-agent-config
+data:
+  SCB_API_BASE_URL: "https://statistikdatabasen.scb.se/api/v2"
+  MODEL_NAME: "claude-sonnet-4-20250514"
+  MAX_TOKENS: "1024"
+  SESSION_TTL_SECONDS: "3600"
