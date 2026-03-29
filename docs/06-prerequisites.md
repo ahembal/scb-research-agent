@@ -52,3 +52,10 @@ To add credits:
 1. Go to https://console.anthropic.com/settings/billing
 2. Click **Add credits**
 3. $5 is more than enough for a full workshop session with this project
+
+## Docker Hub image
+
+The production image is published to Docker Hub as:
+```
+ahembal/scb-research-agent:latest
+```
