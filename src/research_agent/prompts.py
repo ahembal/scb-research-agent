@@ -138,14 +138,19 @@ Rules:
 
 Answer:"""
 
-
 def keyword_extraction_prompt(question: str) -> str:
     """
     Ask Claude to extract short SCB-friendly search keywords from a
     natural language question.
 
-    The SCB search API works best with 1-3 short keywords, not full sentences.
-    Returns a prompt expecting a single line of space-separated keywords.
+    The SCB search API works best with 1-3 short generic keywords.
+    Important limitations:
+    - SCB search does not recognise ASCII approximations of Swedish characters
+      e.g. "Ostergotland" returns zero results, "Östergötland" would work but
+      the user may not type it correctly. Solution: avoid specific place names
+      entirely and use generic terms like "population region" instead.
+    - SCB search works on table topics, not on dimension values like region
+      names or years. Those are handled later in the dimension selection step.
     """
     return f"""You are helping search a statistical database.
 
@@ -153,15 +158,20 @@ A user asked:
 "{question}"
 
 Extract 2-4 short search keywords from this question that would find relevant
-statistical tables. Focus on the topic, not the question structure.
+statistical tables. Focus on the statistical topic, not specific values.
 
 Rules:
 - Reply with ONLY the keywords on a single line, space-separated
 - No punctuation, no explanation
 - Use English keywords
+- NEVER include specific place names, region names, or country names
+  (SCB search does not match these reliably)
+- NEVER include specific years or dates
+- Focus on the statistical concept: population, income, employment, age, etc.
 - Examples:
-    "What was the population of Sweden in 2024?" → population Sweden
+    "What was the population of Sweden in 2024?" → population
     "How many females lived in Stockholm in 2023?" → population region sex
+    "What was the population of Östergötland county?" → population region
     "What is the average age in Gothenburg?" → average age region
 
 Keywords:"""

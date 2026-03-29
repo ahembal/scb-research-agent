@@ -97,3 +97,24 @@ This project focuses on population statistics as a well-structured starting poin
 - Tables are well-structured with consistent dimension patterns
 - Results are reliable and authoritative
 - No authentication required
+
+## Known limitations
+
+### SCB search and Swedish characters
+
+The SCB table search API matches on table titles and topics.
+It does not reliably match on specific dimension values like region names.
+
+In particular, Swedish place names with special characters (å, ä, ö) will
+return zero results if typed in ASCII:
+
+- `Ostergotland` → 0 results
+- `Östergötland` → may work but users often type ASCII
+
+**How this agent handles it:** the keyword extraction step intentionally
+strips all specific place names, region names, and years from the search
+query. These are handled later in the dimension selection step where Claude
+picks the correct dimension value codes from the table metadata.
+
+This means the search always uses generic topic keywords like
+`population region` rather than `population Östergötland 2024`.
