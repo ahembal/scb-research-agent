@@ -255,3 +255,18 @@ async def query_table(table_id: str, req: TableQueryRequest):
             for dim_id, dim_data in result.get("dimension", {}).items()
         },
     }
+
+
+from fastapi import Request
+from fastapi.responses import Response
+
+@app.middleware("http")
+async def add_private_network_header(request: Request, call_next):
+    """
+    Add Private Network Access header to all responses.
+    This prevents browsers from showing the 'access local network' warning
+    when the API is hosted on a Tailscale or private IP address.
+    """
+    response = await call_next(request)
+    response.headers["Access-Control-Allow-Private-Network"] = "true"
+    return response
