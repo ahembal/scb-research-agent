@@ -13,6 +13,7 @@ Direct exploration endpoints (no session needed):
   POST /tables/{id}/query       — query a table with a known selection
 """
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 import httpx
 
 from research_agent.agent import start_session, select_table, confirm_query
@@ -42,6 +43,16 @@ app = FastAPI(
         "The agent ranks and explains — you decide."
     ),
     version="0.1.0",
+)
+
+# ── CORS ──────────────────────────────────────────────────────────────────────
+# Allow requests from any origin so the Lovable UI can reach this API.
+# For production restrict this to specific origins.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 
