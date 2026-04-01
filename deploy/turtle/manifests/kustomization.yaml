@@ -1,0 +1,28 @@
+# deploy/turtle/manifests/kustomization.yaml
+# Turtle homelab overlay.
+# Extends the base manifests with:
+#   - namespace: workshop
+#   - imagePullPolicy: Always (pulls from Docker Hub)
+#   - Ingress resource for hostname-based routing via nginx
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: workshop
+
+resources:
+  - ../../base
+  - ingress.yaml
+
+patches:
+  - patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: research-agent
+      spec:
+        template:
+          spec:
+            containers:
+              - name: research-agent
+                image: ahembal/scb-research-agent:latest
+                imagePullPolicy: Always

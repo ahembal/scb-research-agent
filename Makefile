@@ -88,3 +88,21 @@ kind-logs:
 kind-status:
 	# Show pod and service status
 	kubectl get pods,svc -l app=research-agent
+
+# ── Turtle cluster ────────────────────────────────────────────────────────────
+
+turtle-deploy:
+	# Build, push to Docker Hub, apply manifests to Turtle cluster
+	bash deploy/turtle/scripts/deploy.sh
+
+turtle-teardown:
+	# Remove research agent from Turtle cluster
+	bash deploy/turtle/scripts/teardown.sh
+
+turtle-logs:
+	# Stream logs from the running pod on Turtle
+	kubectl logs -l app=research-agent -n workshop -f
+
+turtle-status:
+	# Show pod and service status on Turtle
+	kubectl get pods,svc,ingress -n workshop
