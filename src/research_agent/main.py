@@ -3,7 +3,8 @@
 FastAPI application — HTTP routing and request/response handling.
 
 Session endpoints (assisted pipeline):
-  POST /session/start           — search tables, return ranked candidates
+  POST /session/evaluate        — evaluate question, return query suggestions
+  POST /session/start           — search tables with chosen query, return candidates
   POST /session/select-table    — fetch metadata, return dimension suggestions
   POST /session/confirm-query   — query SCB, return answer + raw data
 
@@ -14,11 +15,20 @@ Direct exploration endpoints (no session needed):
 """
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi import Request
 import httpx
 
-from research_agent.agent import start_session, select_table, confirm_query
+from research_agent.agent import (
+    evaluate_question,
+    start_session,
+    select_table,
+    confirm_query,
+)
 from research_agent.schema import (
     QuestionRequest,
+    SessionEvaluateResponse,
+    QuerySuggestionResponse,
+    ChooseQueryRequest,
     SessionStartResponse,
     SelectTableRequest,
     SelectTableResponse,
@@ -42,7 +52,7 @@ app = FastAPI(
         "Swedish public statistics from SCB. "
         "The agent ranks and explains — you decide."
     ),
-    version="0.1.0",
+    version="0.2.0",
 )
 
 # ── CORS ──────────────────────────────────────────────────────────────────────
@@ -56,6 +66,18 @@ app.add_middleware(
 )
 
 
+@app.middleware("http")
+async def add_private_network_header(request: Request, call_next):
+    """
+    Add Private Network Access header to all responses.
+    Prevents browsers from showing the 'access local network' warning
+    when the API is hosted on a Tailscale or private IP address.
+    """
+    response = await call_next(request)
+    response.headers["Access-Control-Allow-Private-Network"] = "true"
+    return response
+
+
 # ── Health ────────────────────────────────────────────────────────────────────
 
 @app.get("/", tags=["health"])
@@ -67,27 +89,62 @@ def health():
 # ── Session endpoints — assisted pipeline ─────────────────────────────────────
 
 @app.post(
+    "/session/evaluate",
+    response_model=SessionEvaluateResponse,
+    tags=["session"],
+    summary="Step 0 — evaluate question and get query suggestions",
+)
+async def session_evaluate(req: QuestionRequest):
+    """
+    Step 0 of the assisted pipeline.
+
+    Evaluates the user's question and suggests 2-3 well-formed
+    SCB-friendly queries to choose from. The user picks one before
+    calling /session/start.
+    """
+    try:
+        state = await evaluate_question(req.question)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    return SessionEvaluateResponse(
+        session_id=state.session_id,
+        question=state.question,
+        suggestions=[
+            QuerySuggestionResponse(
+                query=s.query,
+                topic=s.topic,
+                reason=s.reason,
+            )
+            for s in state.query_suggestions
+        ],
+    )
+
+
+@app.post(
     "/session/start",
     response_model=SessionStartResponse,
     tags=["session"],
-    summary="Step 1 — search tables and get ranked candidates",
+    summary="Step 1 — choose a query and get ranked table candidates",
 )
-async def session_start(req: QuestionRequest):
+async def session_start(req: ChooseQueryRequest):
     """
     Step 1 of the assisted pipeline.
 
-    Searches SCB for tables relevant to the question.
-    Claude ranks the candidates and provides a reason for each.
-    The user reviews the list and picks a table before calling /session/select-table.
+    Searches SCB with the chosen query and returns ranked table candidates.
+    The user picks a table before calling /session/select-table.
     """
     try:
-        state = await start_session(req.question)
+        state = await start_session(req.session_id, req.chosen_query)
+    except KeyError as e:
+        raise HTTPException(status_code=404, detail=str(e))
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
 
     return SessionStartResponse(
         session_id=state.session_id,
         question=state.question,
+        chosen_query=state.chosen_query,
         candidates=[
             TableCandidateResponse(
                 id=c.id,
@@ -109,9 +166,8 @@ async def session_select_table(req: SelectTableRequest):
     """
     Step 2 of the assisted pipeline.
 
-    Fetches metadata for the chosen table.
-    Claude suggests dimension values with reasons.
-    The user reviews and confirms or adjusts before calling /session/confirm-query.
+    Fetches metadata for the chosen table and returns dimension suggestions.
+    The user reviews and confirms before calling /session/confirm-query.
     """
     try:
         state = await select_table(req.session_id, req.table_id)
@@ -149,12 +205,6 @@ async def session_confirm_query(req: ConfirmQueryRequest):
 
     Sends the confirmed dimension selection to SCB and fetches the data.
     Claude generates a natural language answer grounded in the result.
-
-    The response always includes:
-    - The natural language answer
-    - The raw numeric values from SCB
-    - The exact selection used with human-readable labels
-    - The source table name and ID
     """
     try:
         state = await confirm_query(req.session_id, req.selection)
@@ -192,10 +242,7 @@ async def session_confirm_query(req: ConfirmQueryRequest):
     summary="Search SCB tables by keyword",
 )
 async def tables_search(req: QuestionRequest):
-    """
-    Search the SCB table catalogue by keyword.
-    Useful for exploring available datasets without starting a session.
-    """
+    """Search the SCB table catalogue by keyword."""
     result = await search_tables(req.question)
     return TableSearchResponse(
         question=req.question,
@@ -210,10 +257,7 @@ async def tables_search(req: QuestionRequest):
     summary="Fetch dimensions and values for a specific table",
 )
 async def table_metadata(table_id: str):
-    """
-    Fetch the full metadata for a specific SCB table.
-    Shows all available dimensions and their selectable values.
-    """
+    """Fetch the full metadata for a specific SCB table."""
     metadata = await get_table_metadata(table_id)
     dimensions = parse_table_dimensions(metadata)
     return TableMetadataResponse(
@@ -229,10 +273,7 @@ async def table_metadata(table_id: str):
     summary="Query a table directly with a known selection",
 )
 async def query_table(table_id: str, req: TableQueryRequest):
-    """
-    Query a specific SCB table directly with a known dimension selection.
-    Bypasses the session flow — useful for manual testing and debugging.
-    """
+    """Query a specific SCB table directly with a known dimension selection."""
     data_url = (
         f"https://statistikdatabasen.scb.se/api/v2"
         f"/tables/{table_id}/data?lang=en"
@@ -255,18 +296,3 @@ async def query_table(table_id: str, req: TableQueryRequest):
             for dim_id, dim_data in result.get("dimension", {}).items()
         },
     }
-
-
-from fastapi import Request
-from fastapi.responses import Response
-
-@app.middleware("http")
-async def add_private_network_header(request: Request, call_next):
-    """
-    Add Private Network Access header to all responses.
-    This prevents browsers from showing the 'access local network' warning
-    when the API is hosted on a Tailscale or private IP address.
-    """
-    response = await call_next(request)
-    response.headers["Access-Control-Allow-Private-Network"] = "true"
-    return response

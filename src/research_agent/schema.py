@@ -16,7 +16,32 @@ class QuestionRequest(BaseModel):
     question: str
 
 
+# ── Session: Step 0 — Evaluate ────────────────────────────────────────────────
+
+class QuerySuggestionResponse(BaseModel):
+    """A suggested rephrased query with topic and reason."""
+    query: str
+    topic: str
+    reason: str
+
+
+class SessionEvaluateResponse(BaseModel):
+    """
+    Returned after POST /session/evaluate.
+    Contains suggested queries for the user to choose from.
+    """
+    session_id: str
+    question: str
+    suggestions: list[QuerySuggestionResponse]
+
+
 # ── Session: Step 1 — Start ───────────────────────────────────────────────────
+
+class ChooseQueryRequest(BaseModel):
+    """User picks a suggested query or types their own."""
+    session_id: str
+    chosen_query: str
+
 
 class TableCandidateResponse(BaseModel):
     """A ranked SCB table candidate with a reason for its relevance."""
@@ -32,6 +57,7 @@ class SessionStartResponse(BaseModel):
     """
     session_id: str
     question: str
+    chosen_query: str
     candidates: list[TableCandidateResponse]
 
 
@@ -117,7 +143,7 @@ class TableQueryRequest(BaseModel):
 
 class AnswerResponse(BaseModel):
     """
-    Legacy response model kept for backwards compatibility with /ask.
+    Legacy response model kept for backwards compatibility.
     New code should use the session endpoints instead.
     """
     question: str

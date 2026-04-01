@@ -1,20 +1,20 @@
 # src/research_agent/agent.py
 """
-Assisted agent pipeline — three discrete step functions.
+Assisted agent pipeline — four discrete step functions.
 
 Design principle: each step does its work, presents results, and stops.
 The human reviews the output and explicitly triggers the next step.
 Nothing happens automatically between steps.
 
-Step 1 — start_session:   search SCB tables, rank candidates, return to user
-Step 2 — select_table:    fetch metadata, suggest dimension values, return to user
-Step 3 — confirm_query:   query SCB with confirmed selection, generate answer
+Step 0 — evaluate:      evaluate question, suggest rephrased queries
+Step 1 — start_session: search SCB with chosen query, rank candidates
+Step 2 — select_table:  fetch metadata, suggest dimension values
+Step 3 — confirm_query: query SCB with confirmed selection, generate answer
 
 All LLM calls go through _call_claude() — the single integration point
 with the Anthropic API.
 """
 import json
-import asyncio
 
 import anthropic
 import httpx
@@ -31,9 +31,11 @@ from research_agent.models import (
     Dimension,
     DimensionValue,
     DimensionSuggestion,
+    QuerySuggestion,
 )
 from research_agent.prompts import (
     keyword_extraction_prompt,
+    query_suggestion_prompt,
     table_ranking_prompt,
     dimension_suggestion_prompt,
     answer_generation_prompt,
@@ -85,34 +87,77 @@ def _parse_json_response(raw: str, context: str) -> any:
         ) from e
 
 
-# ── Step 1: Start session ─────────────────────────────────────────────────────
+# ── Step 0: Evaluate question ─────────────────────────────────────────────────
 
-async def start_session(question: str) -> SessionState:
+async def evaluate_question(question: str) -> SessionState:
     """
-    Step 1 of the assisted pipeline.
+    Step 0 of the assisted pipeline.
 
     - Creates a new session for the question
-    - Asks Claude to extract short search keywords from the question
-    - Searches SCB using those keywords
-    - Asks Claude to rank candidates and explain relevance
-    - Saves ranked candidates to session state
-    - Returns state to the caller (main.py exposes this to the user)
+    - Asks Claude to evaluate the question and suggest 2-3 rephrased queries
+    - Saves suggestions to session state
+    - Returns state to the caller
 
-    The user reviews the ranked candidates and picks one before step 2 runs.
+    The user reviews the suggested queries and picks one before step 1 runs.
     """
     state = create_session(question)
 
-    # Extract short keywords from the question for SCB search
-    # SCB search works best with 1-4 keywords, not full sentences
-    keywords = _call_claude(keyword_extraction_prompt(question))
+    prompt = query_suggestion_prompt(question)
+    raw = _call_claude(prompt)
+    suggestions = _parse_json_response(raw, "query suggestions")
+
+    state.query_suggestions = [
+        QuerySuggestion(
+            query=s.get("query", ""),
+            topic=s.get("topic", ""),
+            reason=s.get("reason", ""),
+        )
+        for s in suggestions
+        if s.get("query")
+    ]
+
+    save_session(state)
+    return state
+
+
+# ── Step 1: Start session ─────────────────────────────────────────────────────
+
+async def start_session(session_id: str, chosen_query: str) -> SessionState:
+    """
+    Step 1 of the assisted pipeline.
+
+    - Retrieves the session
+    - Stores the chosen query
+    - Extracts keywords and searches SCB
+    - Asks Claude to rank candidates and explain relevance
+    - Saves ranked candidates to session state
+    - Returns state to the caller
+
+    The user reviews the ranked candidates and picks one before step 2 runs.
+    """
+    state = get_session(session_id)
+    state.chosen_query = chosen_query
+
+    # Extract short keywords from the chosen query for SCB search
+    keywords = _call_claude(keyword_extraction_prompt(chosen_query))
     print(f"[agent] extracted keywords: {keywords}")
 
-    # Search SCB using extracted keywords
+    # Search SCB
     result = await search_tables(keywords)
     tables = result.get("tables", [])
 
     if not tables:
-        raise ValueError(f"No SCB tables found for: '{question}'")
+        # Fallback — use topic word directly
+        topic_words = keywords.split()
+        if topic_words:
+            result = await search_tables(topic_words[0])
+            tables = result.get("tables", [])
+
+    if not tables:
+        raise ValueError(
+            f"No SCB tables found for: '{chosen_query}'. "
+            f"Try choosing a different query suggestion."
+        )
 
     candidates_raw = [
         {"id": t.get("id"), "label": t.get("label")}
@@ -121,7 +166,7 @@ async def start_session(question: str) -> SessionState:
     ]
 
     # Ask Claude to rank and explain
-    prompt = table_ranking_prompt(question, candidates_raw)
+    prompt = table_ranking_prompt(chosen_query, candidates_raw)
     ranked_raw = _call_claude(prompt)
     ranked = _parse_json_response(ranked_raw, "table ranking")
 
@@ -188,7 +233,8 @@ async def select_table(session_id: str, table_id: str) -> SessionState:
     ]
 
     # Ask Claude to suggest values with reasons
-    prompt = dimension_suggestion_prompt(state.question, parsed)
+    # Use up to 200 values per dimension to avoid truncation
+    prompt = dimension_suggestion_prompt(state.chosen_query or state.question, parsed)
     suggestions_raw = _call_claude(prompt)
     suggestions = _parse_json_response(suggestions_raw, "dimension suggestions")
 
@@ -283,7 +329,7 @@ async def confirm_query(session_id: str, selection: dict[str, list[str]]) -> Ses
 
     # Ask Claude to generate the answer
     prompt = answer_generation_prompt(
-        question=state.question,
+        question=state.chosen_query or state.question,
         table_label=state.selected_table.label,
         selection_labels=selection_labels,
         values=raw_values,

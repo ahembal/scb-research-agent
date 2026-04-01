@@ -56,7 +56,7 @@ def dimension_suggestion_prompt(question: str, dimensions: list[dict]) -> str:
     dims_text = ""
     for dim in dimensions:
         values_text = ", ".join(
-            f"{v['code']} ({v['label']})" for v in dim["values"][:40]
+            f"{v['code']} ({v['label']})" for v in dim["values"][:200]
         )
         dims_text += f"\nDimension ID: {dim['id']} | Label: {dim['label']}\nAvailable values: {values_text}\n"
 
@@ -175,3 +175,43 @@ Rules:
     "What is the average age in Gothenburg?" → average age region
 
 Keywords:"""
+
+
+def query_suggestion_prompt(question: str) -> str:
+    """
+    Ask Claude to evaluate a user's question and suggest 2-3 well-formed
+    SCB-friendly queries the user can choose from.
+
+    SCB contains Swedish public statistics — population, employment,
+    income, housing, education, health, civil status, environment etc.
+
+    Returns a prompt expecting a JSON array of suggestion objects.
+    """
+    return f"""You are an expert in Swedish public statistics (SCB - Statistics Sweden).
+
+A user has asked:
+"{question}"
+
+Your task: evaluate this question and suggest 2-3 well-formed research queries
+that could be answered using SCB statistical data.
+
+Rules:
+- Reply with ONLY a valid JSON array, no explanation outside the JSON
+- Each item must have:
+    "query": a clear, specific research question (max 15 words)
+    "topic": one-word statistical topic in English (e.g. divorce, population, income)
+    "reason": one sentence explaining what data this would find
+- Rephrase vague or colloquial questions into precise statistical queries
+- If the question is already precise, still suggest 2-3 variations
+- Focus on what SCB actually measures — Swedish national statistics
+- Never suggest queries about things SCB does not cover (stock prices, weather, etc.)
+
+Example input: "what is the divorce rate for 2024?"
+Example output:
+[
+  {{"query": "How many divorces were registered in Sweden in 2024?", "topic": "divorce", "reason": "SCB tracks annual divorce counts by region and year"}},
+  {{"query": "What was the number of marriages and divorces in Sweden in 2024?", "topic": "marriage", "reason": "SCB publishes civil status changes including marriages and divorces"}},
+  {{"query": "How has the divorce rate in Sweden changed between 2014 and 2024?", "topic": "divorce", "reason": "SCB time series data shows trends in civil status over multiple years"}}
+]
+
+JSON:"""
