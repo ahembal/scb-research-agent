@@ -1,4 +1,4 @@
-# k8s/base/configmap.yaml
+# deploy/base/configmap.yaml
 # Non-sensitive configuration for the research agent.
 # Secrets (API keys) are managed separately in a Kubernetes Secret.
 apiVersion: v1
@@ -10,3 +10,9 @@ data:
   MODEL_NAME: "claude-sonnet-4-20250514"
   MAX_TOKENS: "1024"
   SESSION_TTL_SECONDS: "3600"
+  # Outbound proxy — routes traffic to Anthropic and SCB through Squid
+  # Running on alert-lizard (192.168.1.183:3128)
+  HTTPS_PROXY: "http://192.168.1.183:3128"
+  HTTP_PROXY: "http://192.168.1.183:3128"
+  # Do not proxy internal cluster traffic
+  NO_PROXY: "10.244.0.0/16,10.96.0.0/12,192.168.1.0/24,localhost,127.0.0.1"
