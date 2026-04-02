@@ -128,3 +128,15 @@ Fix order:
 2. Reinstall nginx Ingress
 3. Switch from NodePort to Ingress
 4. Update deploy/turtle/manifests/ accordingly
+
+## Why Squid
+
+Squid was chosen as the forward proxy for the following reasons:
+
+- Available directly via apt on Ubuntu 24.04 — no additional setup
+- Simple domain-based ACL syntax for whitelisting specific destinations
+- Mature, stable, and well-documented
+- Standard choice for outbound proxy on Linux infrastructure
+
+Alternatives considered: Privoxy (too privacy-focused), Tinyproxy (limited ACLs),
+nginx (forward proxy is not its primary use case).
