@@ -44,7 +44,7 @@ from research_agent.scb_metadata import search_tables, get_table_metadata
 from research_agent.metadata_parser import parse_table_dimensions
 from research_agent.scb_query_builder import build_scb_query
 from research_agent.result_parser import map_selection_to_labels
-from research_agent.session_store import create_session, get_session, save_session
+from research_agent.session_store import create_session, delete_session, get_session, save_session
 
 
 # ── LLM integration ───────────────────────────────────────────────────────────
@@ -338,4 +338,9 @@ async def confirm_query(session_id: str, selection: dict[str, list[str]]) -> Ses
     state.answer = _call_claude(prompt)
 
     save_session(state)
+
+    # Session has served its purpose — delete it to free memory.
+    # The full result is returned to the caller so nothing is lost.
+    delete_session(session_id)
+
     return state

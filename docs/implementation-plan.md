@@ -162,3 +162,11 @@ Namespace: workshop (baseline pod security)
 - **Workaround:** NodePort 31000 on quick-thrush
 - **Fix:** Resolve Flannel issue first, then reinstall nginx Ingress
 - **Priority:** Medium — NodePort works for workshop purposes
+
+### Session Store — Future Improvement (Option B)
+Replace the in-memory session store with a stateless JWT-based flow.
+The client holds the pipeline state in a signed token and sends it back
+with each request. Server becomes fully stateless — no shared memory,
+scales horizontally without Redis.
+
+Priority: Low — only needed if multiple replicas or horizontal scaling required.
